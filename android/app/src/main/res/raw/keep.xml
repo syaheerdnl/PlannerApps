@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The notification plugin finds its icon by NAME at runtime, so the release build's resource
+     shrinker cannot see that it is used and would delete it. Keep it. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_bayar" />

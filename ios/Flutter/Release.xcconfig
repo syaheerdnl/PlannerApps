@@ -1,0 +1,9 @@
+#include "Generated.xcconfig"
+
+// This Mac is Apple silicon: build the iOS simulator for arm64 only.
+ARCHS[sdk=iphonesimulator*] = arm64
+EXCLUDED_ARCHS[sdk=iphonesimulator*] = x86_64
+
+// Google ML Kit uses Objective-C categories; without -ObjC the linker drops them and the app crashes
+// with "unrecognized selector" the first time a bill photo is scanned.
+OTHER_LDFLAGS = $(inherited) -ObjC
