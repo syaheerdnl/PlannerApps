@@ -123,4 +123,61 @@ Tarikh Akhir Bayaran 21/11/2026
     expect(parse('   \n  \n').isEmpty, isTrue);
     expect(parse('~~~ ### !!!').isEmpty, isTrue);
   });
+
+  // A real TNB slip photographed with a phone camera, as ML Kit read it (identity replaced by fake values).
+  // OCR jumbled the reading order, misread "Jumlah", split decimals ("296. 15") and garbled "Bayar Sebelum".
+  const jumbledTnb = '''
+BIL ELEKTRIK ANDA
+No. Akaun
+Depost
+ALI BIN ABU
+TAMAN CONTOH
+Tunggakan
+Caj Semasa
+Jumlah Bil
+Junl ah Perlu Dibayar : RM 296. 15
+Junl ah
+RM 1,953.49
+Caj Semasa
+Tempoh BiO1.03.2025 31.03.2025 (31 Hari)
+296. 17
+296. 15
+209.05
+BayaKasth
+02.05. 2025
+TNB Careline
+Tarikh Bil
+02 April 2025
+RM 296.15
+296 17
+''';
+
+  group('a real, noisy OCR of a TNB slip', () {
+    test('reads the amount to pay, not the deposit printed at the top', () {
+      expect(parse(jumbledTnb).amountSen, 29615);
+    });
+
+    test('still finds the amount when OCR misread the whole label (the amount repeats on a bill)', () {
+      final noLabel = jumbledTnb.replaceAll('Junl ah Perlu Dibayar : RM 296. 15', 'Junl ah');
+      expect(parse(noLabel).amountSen, 29615);
+    });
+
+    test('the label wins over repetition, even when a wrong amount repeats', () {
+      const text = 'Junl ah Perlu Dibayar : RM 296. 15\nRM 1,953.49\nRM 1,953.49';
+      expect(parse(text).amountSen, 29615);
+    });
+
+    test('closes the stray space OCR leaves inside a number or a date', () {
+      expect(parse('Amount due RM 1,953. 49').amountSen, 195349);
+      expect(parse('Due date 02.05. 2025').dueDate, DateTime.utc(2025, 5, 2));
+    });
+
+    test('names the provider from "TNB Careline" even though the company name was not read', () {
+      expect(parse(jumbledTnb).name, 'TNB');
+    });
+
+    test('does not invent a due date when the "pay before" label was unreadable', () {
+      expect(parse(jumbledTnb).dueDate, isNull);
+    });
+  });
 }

@@ -21,6 +21,8 @@ class ScannedBill {
 
 /// Words that mark the line with the amount to pay (English and Malay).
 const _amountWords = [
+  // "Jumlah Perlu Dibayar" is often misread ("Junl ah ..."), but "Perlu Dibayar" survives.
+  'perlu dibayar',
   'amount due',
   'total due',
   'amount payable',
@@ -86,11 +88,15 @@ final _wordDate = RegExp(r'(?<!\d)(\d{1,2})[\s\-]*([A-Za-z]{3,9})[\s,\-]*(\d{4})
 
 /// Reads [text]. [today] decides what counts as a sensible year, e.g. it rejects a date 20 years away.
 ScannedBill parseBillText(String text, {required DateTime today}) {
-  final lines = text.split(RegExp(r'\r?\n')).map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+  final lines = _normalise(text).split(RegExp(r'\r?\n')).map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
   if (lines.isEmpty) return const ScannedBill();
 
   return ScannedBill(name: _findName(lines), amountSen: _findAmount(lines), dueDate: _findDate(lines, today));
 }
+
+/// OCR often puts a space after a decimal point or a date dot: "296. 15", "02.05. 2025".
+/// Close those gaps so the number and date patterns can see them.
+String _normalise(String text) => text.replaceAllMapped(RegExp(r'(\d)\.[ \t]+(\d)'), (m) => '${m[1]}.${m[2]}');
 
 // ── amount ──────────────────────────────────────────────────────────────────
 
@@ -108,9 +114,18 @@ int? _findAmount(List<String> lines) {
       }
     }
   }
-  // 2. Otherwise the biggest amount on the page: on a bill, the total is usually the largest.
+  // 2. No usable label (OCR can garble it). The total to pay is printed more than once on a bill
+  //    (summary, stub, barcode strip) while a deposit or an old balance appears once, so take the
+  //    amount that repeats; if nothing repeats, the biggest.
   final all = lines.expand(_moneyIn).toList();
   if (all.isEmpty) return null;
+  final counts = <int, int>{};
+  for (final a in all) {
+    counts[a] = (counts[a] ?? 0) + 1;
+  }
+  final repeated = counts.entries.where((e) => e.value >= 2).toList()
+    ..sort((a, b) => b.value != a.value ? b.value.compareTo(a.value) : b.key.compareTo(a.key));
+  if (repeated.isNotEmpty) return repeated.first.key;
   all.sort();
   return all.last;
 }

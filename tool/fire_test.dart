@@ -1,9 +1,16 @@
-// A throw-away app for ONE device experiment: does a scheduled reminder really fire by
-// itself, and does it still fire after the phone restarts?
+// A throw-away app for ONE device experiment: does a reminder still show when the app is opened
+// just AFTER the reminder's time, before Android has delivered it?
 //
-// It uses the app's real LocalNotificationScheduler, but schedules two reminders a few
-// minutes from NOW instead of "9:00 on the due date", because the clock of an emulator
-// cannot be moved. Run with:  flutter build apk --debug -t tool/fire_test.dart
+// This reproduces a real bug: reminders are "inexact" alarms that Android may deliver a few
+// minutes late, and re-planning used to cancel a reminder that was due but not yet delivered.
+//
+// It uses the app's real LocalNotificationScheduler. Reminder 1 is due 2 minutes from now. 20 seconds
+// AFTER it is due, this app re-plans with an empty future plan, exactly like the real app does when it
+// comes to the foreground. With the bug, reminder 1 never shows. With the fix, it does.
+//
+// Build:  flutter build apk --release -t tool/fire_test.dart
+import 'dart:async';
+
 import 'package:bayar/domain/reminder_planner.dart';
 import 'package:bayar/services/local_notification_scheduler.dart';
 import 'package:flutter/material.dart';
@@ -15,35 +22,34 @@ Future<void> main() async {
   final granted = await scheduler.hasPermission() || await scheduler.requestPermission();
 
   final now = DateTime.now();
-  DateTime at(int minutes) {
-    final t = now.add(Duration(minutes: minutes));
-    return DateTime(t.year, t.month, t.day, t.hour, t.minute);
-  }
+  // --dart-define=DUE=09:18 picks the minute; otherwise 2 minutes from now.
+  const dueText = String.fromEnvironment('DUE');
+  final due = dueText.isEmpty
+      ? DateTime(now.year, now.month, now.day, now.hour, now.minute).add(const Duration(minutes: 2))
+      : DateTime(now.year, now.month, now.day, int.parse(dueText.split(':')[0]), int.parse(dueText.split(':')[1]));
 
-  final first = at(2);
-  final second = at(9);
-  await scheduler.replaceAll([
+  await scheduler.replaceAll(now: now, [
     PlannedReminder(
-      at: first,
+      at: due,
       kind: ReminderKind.payDay,
-      title: 'FIRE TEST 1: Car loan',
-      body: 'Scheduled for $first',
-      occurrenceKey: 'fire-1',
-    ),
-    PlannedReminder(
-      at: second,
-      kind: ReminderKind.payDay,
-      title: 'FIRE TEST 2 (after reboot): TNB',
-      body: 'Scheduled for $second',
-      occurrenceKey: 'fire-2',
+      title: 'REPLAN TEST: due $due',
+      body: 'This must show even though the app re-planned after its time.',
+      occurrenceKey: 'replan-1',
     ),
   ]);
+
+  // "The user opens the app" 20 seconds after the reminder was due; nothing in the future to plan.
+  final reopenAt = due.add(const Duration(seconds: 20));
+  Timer(reopenAt.difference(DateTime.now()), () => scheduler.replaceAll(now: DateTime.now(), const []));
 
   runApp(
     MaterialApp(
       home: Scaffold(
         body: Center(
-          child: Text('permission: $granted\nR1 at $first\nR2 at $second', textAlign: TextAlign.center),
+          child: Text(
+            'permission: $granted\ndue $due\nre-plan at $reopenAt\nthen wait for the notification',
+            textAlign: TextAlign.center,
+          ),
         ),
       ),
     ),

@@ -21,6 +21,9 @@ class FakeScheduler implements ReminderScheduler {
   int replaceCalls = 0;
   int testNotifications = 0;
 
+  /// The phone time the coordinator passed with the last replaceAll.
+  DateTime? lastNow;
+
   /// The reminders that are scheduled right now.
   List<PlannedReminder> scheduled = [];
 
@@ -48,11 +51,12 @@ class FakeScheduler implements ReminderScheduler {
   }
 
   @override
-  Future<void> replaceAll(List<PlannedReminder> reminders) async {
+  Future<void> replaceAll(List<PlannedReminder> reminders, {required DateTime now}) async {
     _active++;
     if (_active > maxConcurrentReplaces) maxConcurrentReplaces = _active;
     if (replaceDelay > Duration.zero) await Future<void>.delayed(replaceDelay);
     scheduled = List.of(reminders);
+    lastNow = now;
     replaceCalls++;
     _active--;
   }

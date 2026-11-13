@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/money.dart';
+import '../core/theme.dart';
 import '../domain/obligation.dart';
 import '../providers/bills_controller.dart';
 import 'bill_form_screen.dart';
@@ -55,4 +56,35 @@ Future<void> toggleBillPaid(BuildContext context, BillsController controller, Bi
       action: SnackBarAction(label: 'Undo', onPressed: () => controller.undoPaid(item)),
     );
   }
+}
+
+/// "Delete Car loan?" with Cancel / Delete. True only if the person chose Delete.
+/// Used by the edit screen and by swiping a bill, so both ask the same thing.
+Future<bool> confirmDeleteBill(BuildContext context, String name) async {
+  final yes = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Delete $name?'),
+      content: const Text('The bill disappears from every month, along with its payment history and reminders.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: TextButton.styleFrom(foregroundColor: AppColors.dangerFg),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+  return yes == true;
+}
+
+/// Asks first, then deletes, then says so. Returns true if the bill was deleted.
+Future<bool> deleteBillWithConfirm(BuildContext context, BillsController controller, Obligation bill) async {
+  if (!await confirmDeleteBill(context, bill.name)) return false;
+  final ok = await controller.deleteBill(bill.id);
+  // The row (and its screen) may be gone by now: deleting reloads the list.
+  if (!context.mounted) return ok;
+  showBillMessage(context, ok ? '${bill.name} deleted.' : 'Could not delete. Please try again.');
+  return ok;
 }

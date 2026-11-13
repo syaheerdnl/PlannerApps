@@ -8,7 +8,14 @@ import '../providers/bills_controller.dart';
 
 /// One bill occurrence: date, name, status line, amount and a Mark paid / Undo button.
 class BillRow extends StatelessWidget {
-  const BillRow({super.key, required this.item, required this.today, required this.onToggle, required this.onTap});
+  const BillRow({
+    super.key,
+    required this.item,
+    required this.today,
+    required this.onToggle,
+    required this.onTap,
+    this.onDelete,
+  });
 
   final BillItem item;
   final DateTime today;
@@ -19,6 +26,10 @@ class BillRow extends StatelessWidget {
   /// Tapping anywhere else on the row opens the bill for editing.
   final VoidCallback onTap;
 
+  /// Swiping the row to the right shows a Delete panel; letting go past the threshold calls this.
+  /// It asks the person to confirm and returns true if the bill was deleted. Null = no swipe.
+  final Future<bool> Function()? onDelete;
+
   @override
   Widget build(BuildContext context) {
     final occ = item.occurrence;
@@ -27,7 +38,7 @@ class BillRow extends StatelessWidget {
     final shownAmount = item.isPaid ? item.payment!.amountSen : bill.amountSen;
     final estimatePrefix = bill.isEstimate && !item.isPaid ? '~' : '';
 
-    return InkWell(
+    final row = InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -81,6 +92,39 @@ class BillRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    final delete = onDelete;
+    if (delete == null) return row;
+
+    // Swipe right (start to end) to reveal Delete. We answer "false" to confirmDismiss on purpose:
+    // the row is not removed by the swipe itself, it disappears when the list reloads after a real
+    // delete. Cancel therefore just springs the row back.
+    return Dismissible(
+      key: ValueKey('swipe-${occ.key}'),
+      direction: DismissDirection.startToEnd,
+      dismissThresholds: const {DismissDirection.startToEnd: 0.35},
+      confirmDismiss: (_) async {
+        await delete();
+        return false;
+      },
+      background: Container(
+        color: AppColors.dangerFg,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'Delete',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+      child: row,
     );
   }
 }

@@ -105,7 +105,7 @@ class ReminderCoordinator extends ChangeNotifier {
     final paid = await _payments.paidBetween(planner.windowStart(now), planner.windowEnd(now));
     final plan = planner.plan(obligations: bills, paidKeys: paid.keys.toSet(), now: now);
 
-    await _scheduler.replaceAll(plan);
+    await _scheduler.replaceAll(plan, now: now);
 
     _scheduledCount = plan.length;
     notifyListeners();

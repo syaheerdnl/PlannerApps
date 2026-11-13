@@ -505,6 +505,7 @@ class _BillCard extends StatelessWidget {
               today: controller.today,
               onToggle: () => toggleBillPaid(context, controller, items[i]),
               onTap: () => openBillForm(context, existing: items[i].occurrence.obligation),
+              onDelete: () => deleteBillWithConfirm(context, controller, items[i].occurrence.obligation),
             ),
           ],
         ],

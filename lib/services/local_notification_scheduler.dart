@@ -5,6 +5,7 @@ import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/reminder_planner.dart';
+import 'reminder_diff.dart';
 import 'reminder_scheduler.dart';
 import 'time_zone.dart';
 
@@ -101,17 +102,22 @@ class LocalNotificationScheduler implements ReminderScheduler {
   }
 
   @override
-  Future<void> replaceAll(List<PlannedReminder> reminders) async {
-    // Only scheduled-but-not-yet-shown reminders: notifications already sitting
-    // in the shade are left alone.
-    await _plugin.cancelAllPendingNotifications();
+  Future<void> replaceAll(List<PlannedReminder> reminders, {required DateTime now}) async {
+    // Ask what Android is still holding, and clear only what the new plan replaces. A reminder that is
+    // due but not yet delivered stays (see reminder_diff.dart), so re-planning never eats a reminder
+    // that is about to show.
+    final pending = await _plugin.pendingNotificationRequests();
+    final plan = planReplacement(pendingIds: pending.map((p) => p.id), desired: reminders, now: now);
 
-    // Fixed ids 1..n. Because everything was just cancelled, a plain counter is enough.
-    for (var i = 0; i < reminders.length; i++) {
-      final r = reminders[i];
+    for (final id in plan.cancel) {
+      await _plugin.cancel(id: id);
+    }
+
+    for (final slot in plan.schedule) {
+      final r = slot.reminder;
       try {
         await _plugin.zonedSchedule(
-          id: i + 1,
+          id: slot.id,
           title: r.title,
           body: r.body,
           scheduledDate: tz.TZDateTime(tz.local, r.at.year, r.at.month, r.at.day, r.at.hour, r.at.minute),

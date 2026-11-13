@@ -17,8 +17,10 @@ abstract class ReminderScheduler {
   /// Shows the system permission dialog. Returns true if the user allowed it.
   Future<bool> requestPermission();
 
-  /// Cancels every reminder that is scheduled but not yet shown, then schedules [reminders].
-  Future<void> replaceAll(List<PlannedReminder> reminders);
+  /// Makes the scheduled reminders match [reminders] (future ones only). [now] is the phone's wall-clock
+  /// time. A reminder that is already due but still being delivered is left alone, so opening the
+  /// app a minute after 9:00 cannot cancel the 9:00 reminder.
+  Future<void> replaceAll(List<PlannedReminder> reminders, {required DateTime now});
 
   /// Shows a notification right now (debug builds use this to test the setup).
   Future<void> showTest();

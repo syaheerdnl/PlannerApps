@@ -11,6 +11,7 @@ import '../domain/recurrence.dart';
 import '../providers/bills_controller.dart';
 import '../services/bill_scanner.dart';
 import '../widgets/stepper_field.dart';
+import 'bill_actions.dart';
 
 /// Add a bill, or edit one when [existing] is given.
 /// Pops with a short message on success, which the Bills screen shows.
@@ -448,22 +449,8 @@ class _BillFormScreenState extends State<BillFormScreen> {
 
   Future<void> _confirmDelete() async {
     final name = widget.existing!.name;
-    final yes = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete $name?'),
-        content: const Text('It will disappear from your bills, along with its payment history.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.dangerFg),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (yes != true || !mounted) return;
+    final yes = await confirmDeleteBill(context, name);
+    if (!yes || !mounted) return;
 
     setState(() => _saving = true);
     final ok = await context.read<BillsController>().deleteBill(widget.existing!.id);

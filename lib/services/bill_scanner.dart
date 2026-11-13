@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -25,6 +26,8 @@ class MlKitBillScanner implements BillScanner {
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
     try {
       final result = await recognizer.processImage(InputImage.fromFilePath(photo.path));
+      // Debug builds only: show what the OCR read, which is the first thing to check when a scan is wrong.
+      if (kDebugMode) debugPrint('SCAN_TEXT>>>\n${result.text}\n<<<SCAN_TEXT');
       return result.text;
     } finally {
       await recognizer.close();
